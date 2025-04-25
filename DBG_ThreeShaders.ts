@@ -2,7 +2,7 @@
     Thanks to @surfbryce for the original shader code!
 */
 
-import * as THREE from "jsr:@3d/three"
+import * as THREE from "jsr:@3d/three@0.166.0"
 
 // Shaders
 const Uniforms = `

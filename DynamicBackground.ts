@@ -1,4 +1,4 @@
-import * as THREE from "jsr:@3d/three";
+import * as THREE from "jsr:@3d/three@0.166.0";
 // deno-lint-ignore verbatim-module-syntax
 import { GetShaderUniforms, VertexShader, FragmentShader, ShaderUniforms, DisposeShaderUniforms } from "./DBG_ThreeShaders.ts";
 // deno-lint-ignore verbatim-module-syntax
