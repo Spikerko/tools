@@ -90,7 +90,6 @@ export class DynamicBackground implements Giveable {
 
         // Setup container
         this.container = renderer.domElement as typeof this.container;
-        this.container.classList.add("SpicyBG");
 
         // Create scene and materials
         const renderScene = new THREE.Scene();
