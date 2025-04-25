@@ -1,0 +1,21 @@
+{
+  "version": "4",
+  "specifiers": {
+    "jsr:@3d/three@0.166": "0.166.0",
+    "jsr:@socali/modules@^4.4.1": "4.4.1"
+  },
+  "jsr": {
+    "@3d/three@0.166.0": {
+      "integrity": "c73f5f736965d3b8d06b66542d1471004b4fd998fd06426245a0a7fea9bdfde9"
+    },
+    "@socali/modules@4.4.1": {
+      "integrity": "1a8ae6eb7279ba223413386ab72366512b1ad78503d370643d820b42cac9e966"
+    }
+  },
+  "workspace": {
+    "dependencies": [
+      "jsr:@3d/three@0.166",
+      "jsr:@socali/modules@^4.4.1"
+    ]
+  }
+}
