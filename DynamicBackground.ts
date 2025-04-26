@@ -643,7 +643,7 @@ export class DynamicBackground implements Giveable {
         }
 
         // Remove from parent
-        if (this.container.parentElement) {
+        if (this.container) {
             this.container.remove();
         }
 
