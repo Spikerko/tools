@@ -3,6 +3,7 @@ import * as THREE from "jsr:@3d/three@0.166.0";
 import { GetShaderUniforms, VertexShader, FragmentShader, ShaderUniforms, DisposeShaderUniforms } from "./DBG_ThreeShaders.ts";
 // deno-lint-ignore verbatim-module-syntax
 import { Maid, Giveable } from "@socali/modules/Maid";
+import PrefixError from "./PrefixError.ts";
 
 export type CoverArtCache = Map<string, OffscreenCanvas>;
 
@@ -23,6 +24,10 @@ export interface DynamicBackgroundUpdateOptions {
     speed?: number;
 }
 
+const DynamicBackgroundError = new PrefixError({
+    name: "DynamicBackgroundError",
+    prefix: "DynamicBackground: "
+}).Create();
 
 /**
  * DynamicBackground class that implements Giveable interface
@@ -203,6 +208,10 @@ export class DynamicBackground implements Giveable {
         if (this.maid.IsDestroyed()) return;
 
         const { image, placeholderHueShift = 0, blur = this.blurAmount, speed = this.rotationSpeed } = options;
+
+        if (!image || image === null || image === undefined || typeof image !== 'string') {
+            throw new DynamicBackgroundError("Image must be a string");
+        }
 
         // Check if anything has changed
         const imageChanged = image !== this.currentImage;
