@@ -10,6 +10,7 @@ export interface DynamicBackgroundOptions {
     blur?: number;
     maid?: Maid;
     speed?: number;
+    coverArtCache?: Map<string, OffscreenCanvas>;
 }
 
 // Interface for Update method options
@@ -19,6 +20,7 @@ export interface DynamicBackgroundUpdateOptions {
     blur?: number;
     speed?: number;
 }
+
 
 /**
  * DynamicBackground class that implements Giveable interface
@@ -49,7 +51,7 @@ export class DynamicBackground implements Giveable {
     private meshGeometry!: THREE.PlaneGeometry;
 
     // Cache for blurred cover arts
-    private blurredCoverArts = new Map<string, OffscreenCanvas>();
+    private blurredCoverArts: Map<string, OffscreenCanvas>;
 
     /**
      * Creates a new DynamicBackground
@@ -60,6 +62,8 @@ export class DynamicBackground implements Giveable {
         this.blurAmount = options.blur ?? 40;
         this.rotationSpeed = options.speed ?? 0.2;
 
+        this.blurredCoverArts = options.coverArtCache ?? new Map();
+
         // Handle transition option (can be boolean or number)
         if (typeof options.transition === 'boolean') {
             this.transitionDuration = options.transition ? 0.5 : 0;
@@ -68,7 +72,7 @@ export class DynamicBackground implements Giveable {
         }
 
         // Create or use provided maid
-        this.maid = options.maid || new Maid();
+        this.maid = options.maid ?? new Maid();
 
         // Initialize THREE.js objects
         this.initThreeObjects();
