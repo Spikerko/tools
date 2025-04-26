@@ -4,13 +4,15 @@ import { GetShaderUniforms, VertexShader, FragmentShader, ShaderUniforms, Dispos
 // deno-lint-ignore verbatim-module-syntax
 import { Maid, Giveable } from "@socali/modules/Maid";
 
+export type CoverArtCache = Map<string, OffscreenCanvas>;
+
 // Interface for DynamicBackground constructor options
 export interface DynamicBackgroundOptions {
     transition?: number | boolean;
     blur?: number;
     maid?: Maid;
     speed?: number;
-    coverArtCache?: Map<string, OffscreenCanvas>;
+    coverArtCache?: CoverArtCache;
 }
 
 // Interface for Update method options
