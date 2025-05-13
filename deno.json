@@ -7,7 +7,8 @@
         "./DynamicBackground": "./DynamicBackground.ts",
         "./DBG_ThreeShaders": "./DBG_ThreeShaders.ts",
         "./Whentil": "./Whentil.ts",
-        "./PrefixError": "./PrefixError.ts"
+        "./PrefixError": "./PrefixError.ts",
+        "./Cache": "./Cache.ts"
     },
     "imports": {
       "@3d/three": "jsr:@3d/three@^0.166.0",
