@@ -92,7 +92,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         };
         setTimeout(() => {
             initiateProcess();
-        }, 500)
+        }, 50)
         this.SongChangeSignal?.Connect(initiateProcess);
     }
     public isInitialized() {
