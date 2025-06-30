@@ -1,11 +1,23 @@
 import * as THREE from "jsr:@3d/three@0.166.0";
+//import * as THREE from "@3d/three";
 // deno-lint-ignore verbatim-module-syntax
-import { GetShaderUniforms, VertexShader, FragmentShader, ShaderUniforms, DisposeShaderUniforms } from "./DBG_ThreeShaders.ts";
+import { GetShaderUniforms, VertexShader, FragmentShader, type ShaderUniforms, DisposeShaderUniforms } from "./DBG_ThreeShaders.ts";
 // deno-lint-ignore verbatim-module-syntax
 import { Maid, Giveable } from "@socali/modules/Maid";
 import PrefixError from "./PrefixError.ts";
 
 export type CoverArtCache = Map<string, OffscreenCanvas>;
+
+export type DynamicBackgroundPlugin = { 
+    // deno-lint-ignore no-explicit-any
+    //new (...args: any[]): {
+        name: string;
+        // deno-lint-ignore no-explicit-any
+        initialize: (...args: any[]) => Promise<void>;
+    //};
+} & Giveable;
+
+export type DynamicBackgroundPlugins = Record<string, DynamicBackgroundPlugin>
 
 // Interface for DynamicBackground constructor options
 export interface DynamicBackgroundOptions {
@@ -14,6 +26,7 @@ export interface DynamicBackgroundOptions {
     maid?: Maid;
     speed?: number;
     coverArtCache?: CoverArtCache;
+    plugins?: DynamicBackgroundPlugins
 }
 
 // Interface for Update method options
@@ -34,8 +47,8 @@ const DynamicBackgroundError = new PrefixError({
  * Creates and manages a THREE.js canvas with animated background
  */
 export class DynamicBackground implements Giveable {
-    // Private properties
-    private container: HTMLElement & {
+    // public properties
+    public container: HTMLElement & {
         renderer: THREE.WebGLRenderer;
         scene: THREE.Scene;
         uniforms: ShaderUniforms;
@@ -43,28 +56,52 @@ export class DynamicBackground implements Giveable {
         material?: THREE.ShaderMaterial;
         animationFrameId?: number;
     };
-    private maid: Maid;
-    private resizeObserver?: ResizeObserver;
-    private blurAmount: number;
-    private transitionDuration: number;
-    private rotationSpeed: number;
+    public maid: Maid;
+    public resizeObserver?: ResizeObserver;
+    public blurAmount: number;
+    public transitionDuration: number;
+    public rotationSpeed: number;
+    public rotationAngle: number = 0;
+    public lastFrameTime: number = 0;
 
     // Track current values for change detection
-    private currentImage?: string;
-    private currentPlaceholderHueShift: number = 0;
+    public currentImage?: string;
+    public currentPlaceholderHueShift: number = 0;
 
     // THREE.js objects that were previously static
-    private renderCamera!: THREE.OrthographicCamera;
-    private meshGeometry!: THREE.PlaneGeometry;
+    public renderCamera!: THREE.OrthographicCamera;
+    public meshGeometry!: THREE.PlaneGeometry;
 
     // Cache for blurred cover arts
-    private blurredCoverArts: Map<string, OffscreenCanvas>;
+    public blurredCoverArts: Map<string, OffscreenCanvas>;
+
+    // deno-lint-ignore no-explicit-any
+    public plugins: DynamicBackgroundPlugins | Array<any>;
 
     /**
      * Creates a new DynamicBackground
      * @param options Configuration options
      */
     constructor(options: DynamicBackgroundOptions = {}) {
+        // Convert plugins array or object to a normalized object with plugin names as keys
+        const pluginsInput = options.plugins ?? [];
+        // deno-lint-ignore no-explicit-any
+        let pluginsObj: Record<string, any> = {};
+
+        if (Array.isArray(pluginsInput)) {
+            for (const plugin of pluginsInput) {
+                // Ensure plugin is an object and has a string 'name' property
+                if (plugin && typeof plugin === "object" && typeof (plugin as { name?: unknown }).name === "string") {
+                    pluginsObj[(plugin as { name: string }).name] = plugin;
+                }
+            }
+        } else if (typeof pluginsInput === "object" && pluginsInput !== null) {
+            // If already an object, shallow copy
+            pluginsObj = { ...pluginsInput };
+        }
+
+        this.plugins = pluginsObj;
+
         // Set default values
         this.blurAmount = options.blur ?? 40;
         this.rotationSpeed = options.speed ?? 0.2;
@@ -186,13 +223,24 @@ export class DynamicBackground implements Giveable {
 
         // Still keep the comprehensive cleanup as a fallback
         this.maid.Give(() => this.cleanup());
+
+        Object.values(this.plugins).forEach(plugin => {
+            if (!plugin) return;
+            this.maid.Give(plugin)
+            plugin.initialize(
+                {
+                    ClientOptions: options,
+                    InternalContent: this,
+                }
+            );
+        })
     }
 
     /**
      * Initialize Three.js static objects
      * This is now an instance method that creates objects for this instance only
      */
-    private initThreeObjects(): void {
+    public initThreeObjects(): void {
         this.renderCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
         (this.renderCamera as unknown as { position: { z: number } }).position.z = 1;
         this.meshGeometry = new THREE.PlaneGeometry(2, 2);
@@ -217,7 +265,8 @@ export class DynamicBackground implements Giveable {
         const imageChanged = image !== this.currentImage;
         const hueShiftChanged = placeholderHueShift !== this.currentPlaceholderHueShift;
         const blurChanged = blur !== this.blurAmount;
-        const speedChanged = speed !== this.rotationSpeed;
+        const oldSpeed = this.rotationSpeed;
+        const speedChanged = speed !== oldSpeed;
 
         // If nothing has changed, return early
         if (!imageChanged && !hueShiftChanged && !blurChanged && !speedChanged) {
@@ -258,7 +307,7 @@ export class DynamicBackground implements Giveable {
 
         // Set the new texture
         this.container.uniforms.NewBlurredCoverArt.value = newTexture;
-        this.container.uniforms.RotationSpeed.value = this.rotationSpeed;
+        this.container.uniforms.RotationSpeed.value = oldSpeed;
 
         // Force a render to ensure the texture is loaded before starting the animation
         if (this.container.renderer && this.container.scene) {
@@ -275,7 +324,7 @@ export class DynamicBackground implements Giveable {
         }
 
         // Animate the transition
-        await this.animateTransition(newTexture, image);
+        await this.animateTransition(newTexture, image, oldSpeed);
     }
 
     /**
@@ -310,7 +359,7 @@ export class DynamicBackground implements Giveable {
      * @param imageCoverUrl URL of the image to use
      * @param placeholderHueShift Optional hue shift for placeholder images
      */
-    private async initializeTexture(imageCoverUrl: string, placeholderHueShift: number = 0): Promise<void> {
+    public async initializeTexture(imageCoverUrl: string, placeholderHueShift: number = 0): Promise<void> {
         const blurredCover = await this.getBlurredCoverArt(imageCoverUrl, placeholderHueShift);
         const texture = new THREE.CanvasTexture(blurredCover);
         texture.minFilter = THREE.NearestFilter;
@@ -332,22 +381,19 @@ export class DynamicBackground implements Giveable {
      * @param newTexture The new texture to transition to
      * @param newCoverArtUrl URL of the new cover art
      */
-    private animateTransition(newTexture: THREE.Texture, newCoverArtUrl: string): Promise<void> {
+    public animateTransition(newTexture: THREE.Texture, newCoverArtUrl: string, oldSpeed: number): Promise<void> {
         return new Promise<void>((resolve) => {
-            // Use a simple animation approach with setTimeout
-            // Just a few steps for a quick, linear crossfade
-            const totalSteps = 10; // 10 steps is enough for a short crossfade
-            const stepDuration = (this.transitionDuration * 1000) / totalSteps;
-            let currentStep = 0;
+            const newSpeed = this.rotationSpeed;
+            const duration = this.transitionDuration * 1000;
+            let startTime: number | null = null;
 
-            // Create a cleanup object to track if animation should be canceled
-            const animationState = { canceled: false };
+            const animationState = { canceled: false, frameId: 0 };
 
-            // Register cleanup with maid if it's not destroyed
             let cleanupKey: unknown;
             if (!this.maid.IsDestroyed()) {
                 cleanupKey = this.maid.Give(() => {
                     animationState.canceled = true;
+                    cancelAnimationFrame(animationState.frameId);
                     if (this.container.uniforms) {
                         this.container.uniforms.TransitionProgress.value = 0;
                         this.container.uniforms.RotationSpeed.value = this.rotationSpeed;
@@ -355,31 +401,36 @@ export class DynamicBackground implements Giveable {
                 });
             }
 
-            // Function to perform one step of the animation
-            const performAnimationStep = () => {
+            this.lastFrameTime = performance.now();
+            const animate = (timestamp: number) => {
                 if (animationState.canceled) {
                     resolve();
                     return;
                 }
 
-                currentStep++;
+                if (startTime === null) {
+                    startTime = timestamp;
+                }
 
-                // Simple linear progress
-                const progress = currentStep / totalSteps;
+                const elapsedTime = timestamp - startTime;
+                const progress = Math.min(elapsedTime / duration, 1);
 
-                // Update shader uniforms
+                const deltaTime = (timestamp - this.lastFrameTime) / 1000;
+                this.lastFrameTime = timestamp;
+
+                const animatedSpeed = oldSpeed + (newSpeed - oldSpeed) * progress;
+                this.rotationAngle += deltaTime * animatedSpeed;
+                
+                this.container.uniforms.RotationAngle.value = this.rotationAngle;
                 this.container.uniforms.TransitionProgress.value = progress;
 
-                // Force render
                 if (this.container.renderer && this.container.scene) {
                     this.container.renderer.render(this.container.scene, this.renderCamera);
                 }
 
-                // Continue animation if not complete
-                if (currentStep < totalSteps && !animationState.canceled) {
-                    setTimeout(performAnimationStep, stepDuration);
+                if (progress < 1) {
+                    animationState.frameId = requestAnimationFrame(animate);
                 } else {
-                    // Animation complete
                     if (animationState.canceled) {
                         resolve();
                         return;
@@ -387,7 +438,6 @@ export class DynamicBackground implements Giveable {
 
                     this.completeTransition(newTexture, newCoverArtUrl);
 
-                    // Clean up the animation key if it exists and maid is not destroyed
                     if (cleanupKey !== undefined && !this.maid.IsDestroyed()) {
                         this.maid.Clean(cleanupKey);
                     }
@@ -396,8 +446,7 @@ export class DynamicBackground implements Giveable {
                 }
             };
 
-            // Start the animation after a small delay
-            setTimeout(performAnimationStep, 50);
+            animationState.frameId = requestAnimationFrame(animate);
         });
     }
 
@@ -406,7 +455,7 @@ export class DynamicBackground implements Giveable {
      * @param newTexture The new texture to use
      * @param newCoverArtUrl URL of the new cover art
      */
-    private completeTransition(newTexture: THREE.Texture, newCoverArtUrl: string): void {
+    public completeTransition(newTexture: THREE.Texture, newCoverArtUrl: string): void {
         // When animation is complete, swap textures
         if (this.container.texture) {
             this.container.texture.dispose();
@@ -434,14 +483,15 @@ export class DynamicBackground implements Giveable {
     /**
      * Starts the animation loop
      */
-    private startAnimation(): void {
+    public startAnimation(): void {
         // Cancel any existing animation
         if (this.container.animationFrameId) {
             cancelAnimationFrame(this.container.animationFrameId);
             this.container.animationFrameId = undefined;
         }
 
-        const animate = () => {
+        this.lastFrameTime = performance.now();
+        const animate = (time: number) => {
             // Check if container and renderer still exist
             if (!this.container || !this.container.renderer || this.container.renderer.getContext()?.isContextLost()) {
                 if (this.container?.animationFrameId) {
@@ -454,12 +504,17 @@ export class DynamicBackground implements Giveable {
             // Check if renderCamera exists (it might have been cleaned up)
             if (!this.renderCamera) return;
 
-            this.container.uniforms.Time.value = performance.now() / 1000;
+            const deltaTime = (time - this.lastFrameTime) / 1000;
+            this.lastFrameTime = time;
+
+            this.rotationAngle += deltaTime * this.rotationSpeed;
+            this.container.uniforms.RotationAngle.value = this.rotationAngle;
+
             this.container.renderer.render(this.container.scene, this.renderCamera);
             this.container.animationFrameId = requestAnimationFrame(animate);
         };
 
-        animate();
+        animate(performance.now());
     }
 
     /**
@@ -467,7 +522,7 @@ export class DynamicBackground implements Giveable {
      * @param width New width
      * @param height New height
      */
-    private updateContainerDimensions(width: number, height: number): void {
+    public updateContainerDimensions(width: number, height: number): void {
         const { renderer, scene, uniforms } = this.container;
 
         renderer.setSize(width, height);
@@ -548,7 +603,7 @@ export class DynamicBackground implements Giveable {
      * @param placeholderHueShift Optional hue shift for placeholder images
      * @returns Promise that resolves to an OffscreenCanvas with the blurred image
      */
-    private async getBlurredCoverArt(coverArtUrl: string, placeholderHueShift: number = 0): Promise<OffscreenCanvas> {
+    public async getBlurredCoverArt(coverArtUrl: string, placeholderHueShift: number = 0): Promise<OffscreenCanvas> {
         if (this.blurredCoverArts.has(coverArtUrl)) {
             return this.blurredCoverArts.get(coverArtUrl)!;
         }
@@ -595,7 +650,7 @@ export class DynamicBackground implements Giveable {
      * Cleans up all resources used by the background
      * This is a fallback cleanup method in case individual Maid cleanups fail
      */
-    private cleanup(): void {
+    public cleanup(): void {
         // Disconnect resize observer
         if (this.resizeObserver) {
             this.resizeObserver.disconnect();

@@ -3,11 +3,13 @@
 */
 
 import * as THREE from "jsr:@3d/three@0.166.0"
+//import * as THREE from "@3d/three"
 
 // Shaders
 const Uniforms = `
 uniform float Time;
 uniform float RotationSpeed;
+uniform float RotationAngle;
 uniform sampler2D BlurredCoverArt;
 uniform sampler2D NewBlurredCoverArt;
 uniform float TransitionProgress;
@@ -27,6 +29,7 @@ uniform float RightCircleRadius;
 export type ShaderUniforms = {
 	Time: { value: number };
 	RotationSpeed: { value: number };
+	RotationAngle: { value: number };
 	BlurredCoverArt: { value: THREE.Texture };
 	NewBlurredCoverArt: { value: THREE.Texture | null };
 	TransitionProgress: { value: number };
@@ -76,7 +79,7 @@ void main() {
 	if (length(BackgroundCircleOffset) <= BackgroundCircleRadius) {
 		vec2 texCoord = RotateAroundCenter(
 			(((BackgroundCircleOffset / BackgroundCircleRadius) + 1.0) * 0.5),
-			(Time * -0.25 * RotationSpeed)
+			(RotationAngle * -0.25)
 		);
 
 		vec4 currentTexColor = texture2D(BlurredCoverArt, texCoord);
@@ -97,7 +100,7 @@ void main() {
 	if (length(CenterCircleOffset) <= CenterCircleRadius) {
 		vec2 texCoord = RotateAroundCenter(
 			(((CenterCircleOffset / CenterCircleRadius) + 1.0) * 0.5),
-			(Time * 0.5 * RotationSpeed)
+			(RotationAngle * 0.5)
 		);
 
 		vec4 currentTexColor = texture2D(BlurredCoverArt, texCoord);
@@ -121,7 +124,7 @@ void main() {
 	if (length(LeftCircleOffset) <= LeftCircleRadius) {
 		vec2 texCoord = RotateAroundCenter(
 			(((LeftCircleOffset / LeftCircleRadius) + 1.0) * 0.5),
-			(Time * 1.0 * RotationSpeed)
+			(RotationAngle * 1.0)
 		);
 
 		vec4 currentTexColor = texture2D(BlurredCoverArt, texCoord);
@@ -145,7 +148,7 @@ void main() {
 	if (length(RightCircleOffset) <= RightCircleRadius) {
 		vec2 texCoord = RotateAroundCenter(
 			(((RightCircleOffset / RightCircleRadius) + 1.0) * 0.5),
-			(Time * -0.75 * RotationSpeed)
+			(RotationAngle * -0.75)
 		);
 
 		vec4 currentTexColor = texture2D(BlurredCoverArt, texCoord);
