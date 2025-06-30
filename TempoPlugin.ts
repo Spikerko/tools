@@ -1,7 +1,7 @@
-import type { DynamicBackground, DynamicBackgroundOptions } from "./DynamicBackground.ts";
+import type { DynamicBackground, DynamicBackgroundOptions, DynamicBackgroundPlugin } from "./DynamicBackground.ts";
 import type { Signal } from "@socali/modules/Signal"
 import { OnPreRender, type Scheduled } from "@socali/modules/Scheduler";
-import { type Giveable, Maid } from "@socali/modules/Maid";
+import { Maid } from "@socali/modules/Maid";
 
 export type ProcessedSection = {
     start: number;
@@ -13,7 +13,7 @@ export type ProcessedSection = {
 
 export type ProcessedSections = Array<ProcessedSection>;
 
-export default class TempoPlugin implements Giveable {
+export default class TempoPlugin implements DynamicBackgroundPlugin {
     public name: string = "TempoPlugin";
 
     private maid: Maid = new Maid();
@@ -64,7 +64,7 @@ export default class TempoPlugin implements Giveable {
         this.getPaused = this.options.getPaused;
     }
 
-    public initialize(options: {
+    public async initialize(options: {
         ClientOptions: DynamicBackgroundOptions
         InternalContent: DynamicBackground,
     }) {

@@ -8,16 +8,14 @@ import PrefixError from "./PrefixError.ts";
 
 export type CoverArtCache = Map<string, OffscreenCanvas>;
 
-export type DynamicBackgroundPlugin = { 
+export interface DynamicBackgroundPlugin extends Giveable {
+    name: string;
     // deno-lint-ignore no-explicit-any
-    //new (...args: any[]): {
-        name: string;
-        // deno-lint-ignore no-explicit-any
-        initialize: (...args: any[]) => Promise<void>;
-    //};
-} & Giveable;
+    initialize: (...args: any[]) => Promise<void>;
+}
 
 export type DynamicBackgroundPlugins = Record<string, DynamicBackgroundPlugin>
+export type DynamicBackgroundPluginsArray = Array<DynamicBackgroundPlugin>
 
 // Interface for DynamicBackground constructor options
 export interface DynamicBackgroundOptions {
@@ -26,7 +24,7 @@ export interface DynamicBackgroundOptions {
     maid?: Maid;
     speed?: number;
     coverArtCache?: CoverArtCache;
-    plugins?: DynamicBackgroundPlugins
+    plugins?: DynamicBackgroundPluginsArray
     // deno-lint-ignore no-explicit-any
     [key: string]: any;
 }
@@ -97,9 +95,9 @@ export class DynamicBackground implements Giveable {
                     pluginsObj[(plugin as { name: string }).name] = plugin;
                 }
             }
-        } else if (typeof pluginsInput === "object" && pluginsInput !== null) {
-            // If already an object, shallow copy
-            pluginsObj = { ...pluginsInput };
+        } else if (typeof pluginsInput === "object" && pluginsInput !== null && !Array.isArray(pluginsInput)) {
+            // If already an object, shallow copy (only if it's a plain object)
+            pluginsObj = Object.assign({}, pluginsInput as DynamicBackgroundPlugins);
         }
 
         this.plugins = pluginsObj;
@@ -112,9 +110,9 @@ export class DynamicBackground implements Giveable {
 
         // Handle transition option (can be boolean or number)
         if (typeof options.transition === 'boolean') {
-            this.transitionDuration = options.transition ? 0.5 : 0;
+            this.transitionDuration = options.transition ? 0.2 : 0;
         } else {
-            this.transitionDuration = options.transition ?? 0.5;
+            this.transitionDuration = options.transition ?? 0.2;
         }
 
         // Create or use provided maid
