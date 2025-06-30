@@ -31,7 +31,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
     private getSongId: (() => string) | undefined;
     private getSongPosition: (() => number) | undefined;
     
-    private getAccessToken: Promise<() => string> | undefined;
+    private getAccessToken: () => Promise<string> | undefined;
     private dynamicBg: DynamicBackground | undefined;
 
     private initialized: boolean = false;
@@ -55,7 +55,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         getSongId: () => string,
         getPaused: () => boolean;
         getSongPosition: () => number,
-        getAccessToken: Promise<() => string>,
+        getAccessToken: () => Promise<string>,
     }
 
     constructor(options: {
@@ -63,7 +63,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         getSongId: () => string,
         getPaused: () => boolean;
         getSongPosition: () => number,
-        getAccessToken: Promise<() => string>,
+        getAccessToken: () => Promise<string>,
     }) {
         this.maid.Give(() => {
             this.audioDataCache.clear()
@@ -134,8 +134,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         const signal = this.audioDataAbortController.signal;
 
         if (!this.getAccessToken) throw new Error("TempoPlugin: getAccessToken() is undefined");
-        const getAccessTokenPromise = await this.getAccessToken;
-        const accessToken = getAccessTokenPromise();
+        const accessToken = await this.getAccessToken();
         if (!accessToken) throw new Error("TempoPlugin: Access Token missing")
         try {
             const req = await fetch(`https://api.spotify.com/v1/audio-analysis/${songId}`, {
