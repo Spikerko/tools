@@ -119,6 +119,9 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         if (!this.getSongId) throw new Error("TempoPlugin: getSongId() is undefined");
         const songId = this.getSongId();
 
+        this.audioDataAbortController?.abort();
+        this.audioDataAbortController = new AbortController();
+
         const isMapCached = this.audioDataCache.has(songId);
         if (isMapCached) {
             return this.audioDataCache.get(songId)
@@ -128,9 +131,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         if (cached) {
             return cached;
         }
-
-        this.audioDataAbortController?.abort();
-        this.audioDataAbortController = new AbortController();
+        
         const signal = this.audioDataAbortController.signal;
 
         if (!this.getAccessToken) throw new Error("TempoPlugin: getAccessToken() is undefined");
@@ -156,7 +157,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         // deno-lint-ignore no-explicit-any
         } catch (err: any) {
             if (err.name === 'AbortError') {
-                console.log('TempoPlugin: Previous getAudioData request aborted');
+                console.warn('TempoPlugin: Previous getAudioData request aborted');
                 return;
             }
             this.audioDataAbortController = undefined;
@@ -166,6 +167,11 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
 
     private async processSections() {
         const audioData = await this.getAudioData();
+
+        if (!audioData) {
+            this.processedSections = undefined;
+            return;
+        }
 
         // deno-lint-ignore no-explicit-any
         const tempos = audioData.sections.map((s: { tempo: any; }) => s.tempo);
