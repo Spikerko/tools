@@ -31,7 +31,7 @@ export interface DynamicBackgroundOptions {
 
 // Interface for Update method options
 export interface DynamicBackgroundUpdateOptions {
-    image: string;
+    image?: string;
     placeholderHueShift?: number;
     blur?: number;
     speed?: number;
@@ -63,6 +63,10 @@ export class DynamicBackground implements Giveable {
     public rotationSpeed: number;
     public rotationAngle: number = 0;
     public lastFrameTime: number = 0;
+
+    // Update state
+    private _isUpdating: boolean = false;
+    private _queuedUpdate: DynamicBackgroundUpdateOptions | null = null;
 
     // Track current values for change detection
     public currentImage?: string;
@@ -252,13 +256,32 @@ export class DynamicBackground implements Giveable {
      * @returns Promise that resolves when the update is complete
      */
     public async Update(options: DynamicBackgroundUpdateOptions): Promise<void> {
+        this._queuedUpdate = options;
+        if (this._isUpdating) {
+            return;
+        }
+
+        this._isUpdating = true;
+        try {
+            while (this._queuedUpdate) {
+                const currentUpdateOptions = this._queuedUpdate;
+                this._queuedUpdate = null;
+                await this._performUpdate(currentUpdateOptions);
+            }
+        } finally {
+            this._isUpdating = false;
+        }
+    }
+
+    private async _performUpdate(options: DynamicBackgroundUpdateOptions): Promise<void> {
         // Don't update if maid is destroyed
         if (this.maid.IsDestroyed()) return;
 
-        const { image, placeholderHueShift = 0, blur = this.blurAmount, speed = this.rotationSpeed } = options;
+        const { image: newImage, placeholderHueShift = 0, blur = this.blurAmount, speed = this.rotationSpeed } = options;
+        const image = newImage ?? this.currentImage;
 
-        if (!image || image === null || image === undefined || typeof image !== 'string') {
-            throw new DynamicBackgroundError("Image must be a string");
+        if (!image || typeof image !== 'string') {
+            throw new DynamicBackgroundError("Image must be a string and is required for the first update.");
         }
 
         // Check if anything has changed
