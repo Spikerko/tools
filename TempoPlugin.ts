@@ -211,6 +211,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
     }
 
     public Destroy() {
+        this.initialized = false;
         this.maid.Destroy();
     }
 }
