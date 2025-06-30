@@ -30,8 +30,8 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
     private SongChangeSignal: Signal | undefined;
     private getSongId: (() => string) | undefined;
     private getSongPosition: (() => number) | undefined;
-    // deno-lint-ignore no-explicit-any
-    private GetCosmosAsync: any;
+    
+    private getAccessToken: Promise<() => string> | undefined;
     private dynamicBg: DynamicBackground | undefined;
 
     private initialized: boolean = false;
@@ -55,8 +55,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         getSongId: () => string,
         getPaused: () => boolean;
         getSongPosition: () => number,
-        // deno-lint-ignore no-explicit-any
-        GetCosmosAsync: any
+        getAccessToken: Promise<() => string>,
     }
 
     constructor(options: {
@@ -64,8 +63,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         getSongId: () => string,
         getPaused: () => boolean;
         getSongPosition: () => number,
-        // deno-lint-ignore no-explicit-any
-        GetCosmosAsync: any
+        getAccessToken: Promise<() => string>,
     }) {
         this.maid.Give(() => {
             this.audioDataCache.clear()
@@ -75,7 +73,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         this.SongChangeSignal = this.maid.Give(this.options.SongChangeSignal);
         this.getSongId = this.options.getSongId;
         this.getSongPosition = this.options.getSongPosition;
-        this.GetCosmosAsync = this.options.GetCosmosAsync;
+        this.getAccessToken = this.options.getAccessToken;
         this.getPaused = this.options.getPaused;
         this.animationLoop = this.animationLoop.bind(this);
     }
@@ -135,10 +133,23 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         this.audioDataAbortController = new AbortController();
         const signal = this.audioDataAbortController.signal;
 
-        if (!this.GetCosmosAsync) throw new Error("TempoPlugin: GetCosmosAsync() is undefined");
+        if (!this.getAccessToken) throw new Error("TempoPlugin: getAccessToken() is undefined");
+        const getAccessTokenPromise = await this.getAccessToken;
+        const accessToken = getAccessTokenPromise();
+        if (!accessToken) throw new Error("TempoPlugin: Access Token missing")
         try {
-            const res = await this.GetCosmosAsync()?.get(`https://api.spotify.com/v1/audio-analysis/${songId}`, { signal });
-            if (!res) throw new Error("TempoPlugin: CosmosAsync request failed");
+            const req = await fetch(`https://api.spotify.com/v1/audio-analysis/${songId}`, {
+                method: "GET",
+                headers: {
+                    Authorization: accessToken
+                },
+                signal
+            });
+            if (req.status !== 200) {
+                throw new Error("TempoPlugin: Fetch request failed");
+            }
+            const res = await req.json();
+            if (!res) throw new Error("TempoPlugin: Fetch request failed - content missing");
             this.audioDataCache.set(songId, res);
             await AudioDataStore.SetItem(songId, res);
             this.audioDataAbortController = undefined;
