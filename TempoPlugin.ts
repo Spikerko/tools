@@ -1,6 +1,5 @@
 import type { DynamicBackground, DynamicBackgroundOptions, DynamicBackgroundPlugin } from "./DynamicBackground.ts";
 import type { Signal } from "@socali/modules/Signal"
-import { OnPreRender, type Scheduled } from "@socali/modules/Scheduler";
 import { Maid } from "@socali/modules/Maid";
 
 export type ProcessedSection = {
@@ -22,14 +21,14 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
     private getSongId: (() => string) | undefined;
     private getSongPosition: (() => number) | undefined;
     // deno-lint-ignore no-explicit-any
-    private CosmosAsync: any;
+    private GetCosmosAsync: any;
     private dynamicBg: DynamicBackground | undefined;
 
     private initialized: boolean = false;
     // deno-lint-ignore no-explicit-any
     private audioDataCache: Map<string, any> = new Map();
 
-    private speedAnimation: Scheduled | undefined;
+    private speedAnimation: number | undefined;
     private speedAnimationFunction: (() => void | undefined) | undefined;
     private processedSections: ProcessedSections | undefined;
 
@@ -44,7 +43,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         getPaused: () => boolean;
         getSongPosition: () => number,
         // deno-lint-ignore no-explicit-any
-        CosmosAsync: any,
+        GetCosmosAsync: any
     }
 
     constructor(options: {
@@ -53,15 +52,16 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         getPaused: () => boolean;
         getSongPosition: () => number,
         // deno-lint-ignore no-explicit-any
-        CosmosAsync: any,
+        GetCosmosAsync: any
     }) {
         this.maid.Give(() => this.audioDataCache.clear());
         this.options = options;
         this.SongChangeSignal = this.maid.Give(this.options.SongChangeSignal);
         this.getSongId = this.options.getSongId;
         this.getSongPosition = this.options.getSongPosition;
-        this.CosmosAsync = this.options.CosmosAsync;
+        this.GetCosmosAsync = this.options.GetCosmosAsync;
         this.getPaused = this.options.getPaused;
+        this.animationLoop = this.animationLoop.bind(this);
     }
 
     public async initialize(options: {
@@ -75,14 +75,26 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         this.lastSpeed = this.dynamicBg.rotationSpeed ?? 0;
         this.initialized = true;
 
-        this.SongChangeSignal?.Connect(async () => {
-            await this.processSections();
-            if (!this.speedAnimationFunction && !this.speedAnimation) {
-                this.animate();
+        const initiateProcess = async () => {
+            try {
+                await this.processSections();
+                if (this.processedSections && !this.speedAnimation) {
+                    this.animate();
+                }
+            } catch (error) {
+                console.error("TempoPlugin: Failed to process song sections. Animation not started.", error);
+                if (this.speedAnimation) {
+                    cancelAnimationFrame(this.speedAnimation);
+                    this.speedAnimation = undefined;
+                }
+                this.processedSections = undefined;
             }
-        })
+        };
+        setTimeout(() => {
+            initiateProcess();
+        }, 500)
+        this.SongChangeSignal?.Connect(initiateProcess);
     }
-
     public isInitialized() {
         return this.initialized
     }
@@ -96,9 +108,9 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
             return this.audioDataCache.get(songId);
         }
 
-        if (!this.CosmosAsync) throw new Error("TempoPlugin: CosmosAsync() is undefined");
+        if (!this.GetCosmosAsync) throw new Error("TempoPlugin: GetCosmosAsync() is undefined");
         try {
-            const res = await this.CosmosAsync?.get(`https://api.spotify.com/v1/audio-analysis/${songId}`);
+            const res = await this.GetCosmosAsync()?.get(`https://api.spotify.com/v1/audio-analysis/${songId}`);
             if (!res) throw new Error("TempoPlugin: CosmosAsync request failed");
             this.audioDataCache.set(songId, res);
             return res;
@@ -139,50 +151,63 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         }) as ProcessedSections;
     }
 
-    private animate() {
-        if (this.speedAnimationFunction || this.speedAnimation) throw new Error("TempoPlugin: Speed animation is already running");
-        
-        this.speedAnimationFunction = () => {
-            if (!this.getSongPosition) throw new Error("TempoPlugin: getSongPosition() is undefined");
-            if (!this.processedSections) throw new Error("TempoPlugin: this.processedSections is undefined");
-            const audioPosition = this.getSongPosition();
-            this.processedSections.forEach(async (section: ProcessedSection) => {
-                const start = section.start;
-                const end = section.end;
-
-                // Check if this section is currently active
-                const isActive = audioPosition >= start && audioPosition < end;
-                if (isActive) {
-                    // Do something with the active section if needed
-                    // e.g., console.log('Active section:', section);
-                    if (!this.getPaused) throw new Error("TempoPlugin: getPaused() is undefined");
-                    if (!this.dynamicBg) throw new Error("TempoPlugin: dynamicBg() is undefined");
-
-                    if (this.lastPaused !== this.getPaused()) {
-                        await this.dynamicBg.Update({
-                            image: this.dynamicBg.currentImage ?? "",
-                            speed: 0
-                        })
-                        this.lastSpeed = -1;
-                    }
-
-                    this.lastPaused = this.getPaused()
-
-                    if (this.lastSpeed !== section.speed && !this.getPaused()) {
-                        await this.dynamicBg.Update({
-                            image: this.dynamicBg.currentImage ?? "",
-                            speed: section.speed
-                        })
-                    }
-
-                    this.lastSpeed = section.speed;
-                }
-            });
-
-
-            this.speedAnimation = this.maid.Give(OnPreRender(this.speedAnimationFunction ?? (() => {})))
+    private async animationLoop() {
+        if (!this.getSongPosition) {
+          console.error("TempoPlugin: getSongPosition() is undefined");
+          throw new Error("TempoPlugin: getSongPosition() is undefined");
         }
-        this.speedAnimationFunction()
+        if (!this.processedSections) {
+          console.warn("TempoPlugin: this.processedSections is undefined, skipping frame.");
+          this.speedAnimation = requestAnimationFrame(this.animationLoop);
+          return;
+        }
+        const audioPosition = this.getSongPosition();
+        for (const section of this.processedSections) {
+          const start = section.start;
+          const end = section.end;
+          const isActive = audioPosition >= start && audioPosition < end;
+          if (isActive) {
+            if (!this.getPaused) {
+              console.error("TempoPlugin: getPaused() is undefined");
+              throw new Error("TempoPlugin: getPaused() is undefined");
+            }
+            if (!this.dynamicBg) {
+              console.error("TempoPlugin: dynamicBg() is undefined");
+              throw new Error("TempoPlugin: dynamicBg() is undefined");
+            }
+            if (this.lastPaused !== this.getPaused()) {
+              await this.dynamicBg.Update({
+                image: this.dynamicBg.currentImage ?? "",
+                speed: 0
+              });
+              this.lastSpeed = -1;
+            }
+            this.lastPaused = this.getPaused();
+            if (this.lastSpeed !== section.speed && !this.getPaused()) {
+              await this.dynamicBg.Update({
+                image: this.dynamicBg.currentImage ?? "",
+                speed: section.speed
+              });
+            }
+            this.lastSpeed = section.speed;
+            break;
+          }
+        }
+        this.speedAnimation = requestAnimationFrame(this.animationLoop);
+      }
+
+    private animate() {
+        if (this.speedAnimation) {
+            console.error("TempoPlugin: Speed animation is already running");
+            return;
+        }
+        this.speedAnimation = requestAnimationFrame(this.animationLoop);
+        this.maid.Give(() => {
+            if (this.speedAnimation) {
+                cancelAnimationFrame(this.speedAnimation);
+                this.speedAnimation = undefined;
+            }
+        });
     }
 
     public Destroy() {
