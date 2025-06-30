@@ -108,8 +108,9 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         setTimeout(() => {
             initiateProcess();
         }, 50)
-        // deno-lint-ignore no-explicit-any
-        this.maid.Give(this.SongChangeSignal?.Connect(initiateProcess) as any);
+
+        const conn = this.SongChangeSignal?.Connect(initiateProcess);
+        this.maid.Give(() => conn?.Disconnect());
     }
     public isInitialized() {
         return this.initialized
