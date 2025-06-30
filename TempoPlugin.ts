@@ -163,7 +163,6 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
                             image: this.dynamicBg.currentImage ?? "",
                             speed: 0
                         })
-                        console.log("Paused")
                         this.lastSpeed = -1;
                     }
 
@@ -174,7 +173,6 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
                             image: this.dynamicBg.currentImage ?? "",
                             speed: section.speed
                         })
-                        console.log("Changed Speed from", this.lastSpeed, "to", section.speed, "(Original Tempo)", section.tempo)
                     }
 
                     this.lastSpeed = section.speed;
