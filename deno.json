@@ -1,7 +1,7 @@
 {
     "name": "@spikerko/tools",
     "description": "Some of the tools that I reuse",
-    "version": "1.3.8",
+    "version": "1.3.9",
     "exports": {
         "./Animator": "./Animator.ts",
         "./DynamicBackground": "./DynamicBackground.ts",

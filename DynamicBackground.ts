@@ -226,7 +226,7 @@ export class DynamicBackground implements Giveable {
 
         Object.values(this.plugins).map(plugin => {
             if (!plugin) return;
-            this.maid.Give(plugin)
+            this.maid.Give(() => plugin.Destroy());
             plugin.initialize(
                 {
                     ClientOptions: options,
