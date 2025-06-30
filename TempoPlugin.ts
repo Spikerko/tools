@@ -1,6 +1,7 @@
 import type { DynamicBackground, DynamicBackgroundOptions, DynamicBackgroundPlugin } from "./DynamicBackground.ts";
 import type { Signal } from "@socali/modules/Signal"
 import { Maid } from "@socali/modules/Maid";
+import { GetExpireStore } from "./Cache.ts";
 
 export type ProcessedSection = {
     start: number;
@@ -11,6 +12,15 @@ export type ProcessedSection = {
 };
 
 export type ProcessedSections = Array<ProcessedSection>;
+
+const AudioDataStore = GetExpireStore<ProcessedSections>(
+    "SpikerkoTools_TempoPlugin_AudioData",
+    1,
+    {
+        Unit: "Weeks",
+        Duration: 2
+    }
+)
 
 export default class TempoPlugin implements DynamicBackgroundPlugin {
     public name: string = "TempoPlugin";
@@ -38,6 +48,8 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
     private getPaused: (() => boolean) | undefined;
     private clientOptions: DynamicBackgroundOptions | undefined;
 
+    private audioDataAbortController: AbortController | undefined;
+
     private options: {
         SongChangeSignal: Signal,
         getSongId: () => string,
@@ -55,7 +67,10 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         // deno-lint-ignore no-explicit-any
         GetCosmosAsync: any
     }) {
-        this.maid.Give(() => this.audioDataCache.clear());
+        this.maid.Give(() => {
+            this.audioDataCache.clear()
+            this.audioDataAbortController?.abort();
+        });
         this.options = options;
         this.SongChangeSignal = this.maid.Give(this.options.SongChangeSignal);
         this.getSongId = this.options.getSongId;
@@ -105,18 +120,36 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         if (!this.initialized) throw new Error("TempoPlugin hasn't been initialized yet");
         if (!this.getSongId) throw new Error("TempoPlugin: getSongId() is undefined");
         const songId = this.getSongId();
-        
-        if (this.audioDataCache.has(songId)) {
-            return this.audioDataCache.get(songId);
+
+        const isMapCached = this.audioDataCache.has(songId);
+        if (isMapCached) {
+            return this.audioDataCache.get(songId)
         }
+        
+        const cached = await AudioDataStore.GetItem(songId);
+        if (cached) {
+            return cached;
+        }
+
+        this.audioDataAbortController?.abort();
+        this.audioDataAbortController = new AbortController();
+        const signal = this.audioDataAbortController.signal;
 
         if (!this.GetCosmosAsync) throw new Error("TempoPlugin: GetCosmosAsync() is undefined");
         try {
-            const res = await this.GetCosmosAsync()?.get(`https://api.spotify.com/v1/audio-analysis/${songId}`);
+            const res = await this.GetCosmosAsync()?.get(`https://api.spotify.com/v1/audio-analysis/${songId}`, { signal });
             if (!res) throw new Error("TempoPlugin: CosmosAsync request failed");
             this.audioDataCache.set(songId, res);
+            await AudioDataStore.SetItem(songId, res);
+            this.audioDataAbortController = undefined;
             return res;
-        } catch {
+        // deno-lint-ignore no-explicit-any
+        } catch (err: any) {
+            if (err.name === 'AbortError') {
+                console.log('TempoPlugin: Previous getAudioData request aborted');
+                return;
+            }
+            this.audioDataAbortController = undefined;
             throw new Error("TempoPlugin: Getting Audio Data failed")
         }
     }
