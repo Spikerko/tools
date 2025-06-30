@@ -616,7 +616,8 @@ export class DynamicBackground implements Giveable {
         await image.decode();
 
         const originalSize = Math.min(image.width, image.height);
-        const blurExtent = Math.ceil(3 * this.blurAmount);
+        const resizedBlurAmount = this.blurAmount * (originalSize / 640);
+        const blurExtent = Math.ceil(3 * resizedBlurAmount);
 
         const circleCanvas = new OffscreenCanvas(originalSize, originalSize);
         const circleCtx = circleCanvas.getContext('2d')!;
@@ -639,7 +640,7 @@ export class DynamicBackground implements Giveable {
         const blurredCanvas = new OffscreenCanvas(expandedSize, expandedSize);
         const blurredCtx = blurredCanvas.getContext('2d')!;
 
-        blurredCtx.filter = `blur(${this.blurAmount}px) hue-rotate(${placeholderHueShift}deg)`;
+        blurredCtx.filter = `blur(${resizedBlurAmount}px) hue-rotate(${placeholderHueShift}deg)`;
         blurredCtx.drawImage(circleCanvas, (padding / 2), (padding / 2));
 
         this.blurredCoverArts.set(coverArtUrl, blurredCanvas);
