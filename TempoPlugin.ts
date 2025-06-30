@@ -92,6 +92,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
 
         const initiateProcess = async () => {
             try {
+                this.processedSections = undefined;
                 await this.processSections();
                 if (this.processedSections && !this.speedAnimation) {
                     this.animate();
