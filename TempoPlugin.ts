@@ -70,7 +70,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
             this.audioDataAbortController?.abort();
         });
         this.options = options;
-        this.SongChangeSignal = this.maid.Give(this.options.SongChangeSignal);
+        this.SongChangeSignal = this.options.SongChangeSignal;
         this.getSongId = this.options.getSongId;
         this.getSongPosition = this.options.getSongPosition;
         this.getAccessToken = this.options.getAccessToken;
@@ -108,7 +108,8 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         setTimeout(() => {
             initiateProcess();
         }, 50)
-        this.SongChangeSignal?.Connect(initiateProcess);
+        // deno-lint-ignore no-explicit-any
+        this.maid.Give(this.SongChangeSignal?.Connect(initiateProcess) as any);
     }
     public isInitialized() {
         return this.initialized
