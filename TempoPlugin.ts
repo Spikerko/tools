@@ -181,7 +181,6 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
               await this.dynamicBg.Update({
                 image: this.dynamicBg.currentImage ?? "",
                 speed: 0,
-                ...(this.clientOptions ?? {})
               });
               this.lastSpeed = -1;
             }
@@ -190,7 +189,6 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
               await this.dynamicBg.Update({
                 image: this.dynamicBg.currentImage ?? "",
                 speed: section.speed,
-                ...(this.clientOptions ?? {})
               });
             }
             this.lastSpeed = section.speed;
