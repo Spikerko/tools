@@ -1,4 +1,4 @@
-import type { DynamicBackground } from "./DynamicBackground.ts";
+import type { DynamicBackground, DynamicBackgroundOptions } from "./DynamicBackground.ts";
 import type { Signal } from "@socali/modules/Signal"
 import { OnPreRender, type Scheduled } from "@socali/modules/Scheduler";
 import { type Giveable, Maid } from "@socali/modules/Maid";
@@ -38,33 +38,44 @@ export default class TempoPlugin implements Giveable {
     
     private getPaused: (() => boolean) | undefined;
 
-    constructor() {
+    private options: {
+        SongChangeSignal: Signal,
+        getSongId: () => string,
+        getPaused: () => boolean;
+        getSongPosition: () => number,
+        // deno-lint-ignore no-explicit-any
+        CosmosAsync: () => any,
+    }
+
+    constructor(options: {
+        SongChangeSignal: Signal,
+        getSongId: () => string,
+        getPaused: () => boolean;
+        getSongPosition: () => number,
+        // deno-lint-ignore no-explicit-any
+        CosmosAsync: () => any,
+    }) {
         this.maid.Give(() => this.audioDataCache.clear());
+        this.options = options;
+        this.SongChangeSignal = this.maid.Give(this.options.SongChangeSignal);
+        this.getSongId = this.options.getSongId;
+        this.getSongPosition = this.options.getSongPosition;
+        this.CosmosAsync = this.options.CosmosAsync;
+        this.getPaused = this.options.getPaused;
     }
 
     public initialize(options: {
-        ClientOptions: {
-            SongChangeSignal: Signal,
-            getSongId: () => string,
-            getPaused: () => boolean;
-            getSongPosition: () => number,
-            // deno-lint-ignore no-explicit-any
-            CosmosAsync: () => any,
-        },
+        ClientOptions: DynamicBackgroundOptions
         InternalContent: DynamicBackground,
     }) {
         if (this.initialized) throw new Error("TempoPlugin was already initialized");
-        this.SongChangeSignal = this.maid.Give(options.ClientOptions.SongChangeSignal);
-        this.getSongId = options.ClientOptions.getSongId;
-        this.getSongPosition = options.ClientOptions.getSongPosition;
-        this.CosmosAsync = options.ClientOptions.CosmosAsync;
+        
         this.dynamicBg = options.InternalContent;
-        this.getPaused = options.ClientOptions.getPaused;
 
         this.lastSpeed = this.dynamicBg.rotationSpeed ?? 0;
         this.initialized = true;
 
-        this.SongChangeSignal.Connect(async () => {
+        this.SongChangeSignal?.Connect(async () => {
             await this.processSections();
             if (!this.speedAnimationFunction && !this.speedAnimation) {
                 this.animate();

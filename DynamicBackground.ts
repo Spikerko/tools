@@ -27,6 +27,8 @@ export interface DynamicBackgroundOptions {
     speed?: number;
     coverArtCache?: CoverArtCache;
     plugins?: DynamicBackgroundPlugins
+    // deno-lint-ignore no-explicit-any
+    [key: string]: any;
 }
 
 // Interface for Update method options
@@ -224,7 +226,7 @@ export class DynamicBackground implements Giveable {
         // Still keep the comprehensive cleanup as a fallback
         this.maid.Give(() => this.cleanup());
 
-        Object.values(this.plugins).forEach(plugin => {
+        Object.values(this.plugins).map(plugin => {
             if (!plugin) return;
             this.maid.Give(plugin)
             plugin.initialize(
