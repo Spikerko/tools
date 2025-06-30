@@ -36,6 +36,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
     private lastSpeed: number = 0;
     
     private getPaused: (() => boolean) | undefined;
+    private clientOptions: DynamicBackgroundOptions | undefined;
 
     private options: {
         SongChangeSignal: Signal,
@@ -71,6 +72,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         if (this.initialized) throw new Error("TempoPlugin was already initialized");
         
         this.dynamicBg = options.InternalContent;
+        this.clientOptions = options.ClientOptions;
 
         this.lastSpeed = this.dynamicBg.rotationSpeed ?? 0;
         this.initialized = true;
@@ -178,7 +180,8 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
             if (this.lastPaused !== this.getPaused()) {
               await this.dynamicBg.Update({
                 image: this.dynamicBg.currentImage ?? "",
-                speed: 0
+                speed: 0,
+                ...(this.clientOptions ?? {})
               });
               this.lastSpeed = -1;
             }
@@ -186,7 +189,8 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
             if (this.lastSpeed !== section.speed && !this.getPaused()) {
               await this.dynamicBg.Update({
                 image: this.dynamicBg.currentImage ?? "",
-                speed: section.speed
+                speed: section.speed,
+                ...(this.clientOptions ?? {})
               });
             }
             this.lastSpeed = section.speed;
