@@ -44,7 +44,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         getPaused: () => boolean;
         getSongPosition: () => number,
         // deno-lint-ignore no-explicit-any
-        CosmosAsync: () => any,
+        CosmosAsync: any,
     }
 
     constructor(options: {
@@ -53,7 +53,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         getPaused: () => boolean;
         getSongPosition: () => number,
         // deno-lint-ignore no-explicit-any
-        CosmosAsync: () => any,
+        CosmosAsync: any,
     }) {
         this.maid.Give(() => this.audioDataCache.clear());
         this.options = options;
