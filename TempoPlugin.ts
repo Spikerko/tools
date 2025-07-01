@@ -1,4 +1,4 @@
-import type { DynamicBackground, DynamicBackgroundOptions, DynamicBackgroundPlugin } from "./DynamicBackground.ts";
+import type { DynamicBackground, DynamicBackgroundOptions, DynamicBackgroundPlugin, DynamicBackgroundPluginTuple } from "./DynamicBackground.ts";
 import type { Signal } from "@socali/modules/Signal"
 import { Maid } from "@socali/modules/Maid";
 import { GetExpireStore } from "./Cache.ts";
@@ -265,6 +265,6 @@ export class TempoPlugin implements DynamicBackgroundPlugin {
     }
 }
 
-export default function(options: TempoPluginOptions) {
+export default function(options: TempoPluginOptions): DynamicBackgroundPluginTuple {
     return [TempoPlugin, options];
 }
