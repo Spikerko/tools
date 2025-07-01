@@ -22,7 +22,15 @@ const AudioDataStore = GetExpireStore<ProcessedSections>(
     }
 )
 
-export default class TempoPlugin implements DynamicBackgroundPlugin {
+export type TempoPluginOptions = {
+    SongChangeSignal: Signal,
+    getSongId: () => string,
+    getPaused: () => boolean;
+    getSongPosition: () => number,
+    getAccessToken: () => Promise<string>,
+};
+
+export class TempoPlugin implements DynamicBackgroundPlugin {
     public name: string = "TempoPlugin";
 
     private maid: Maid = new Maid();
@@ -50,21 +58,9 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
 
     private audioDataAbortController: AbortController | undefined;
 
-    private options: {
-        SongChangeSignal: Signal,
-        getSongId: () => string,
-        getPaused: () => boolean;
-        getSongPosition: () => number,
-        getAccessToken: () => Promise<string>,
-    }
+    private options: TempoPluginOptions
 
-    constructor(options: {
-        SongChangeSignal: Signal,
-        getSongId: () => string,
-        getPaused: () => boolean;
-        getSongPosition: () => number,
-        getAccessToken: () => Promise<string>,
-    }) {
+    constructor(options: TempoPluginOptions) {
         this.maid.Give(() => {
             this.audioDataCache.clear()
             this.audioDataAbortController?.abort();
@@ -262,9 +258,13 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
         this.audioDataAbortController?.abort();
         this.audioDataAbortController = undefined;
         if (this.speedAnimation) {
-        cancelAnimationFrame(this.speedAnimation);
-        this.speedAnimation = undefined;
+            cancelAnimationFrame(this.speedAnimation);
+            this.speedAnimation = undefined;
         }
-        this.maid.CleanUp();
+        this.maid.Destroy();
     }
+}
+
+export default function(options: TempoPluginOptions) {
+    return [TempoPlugin, options];
 }

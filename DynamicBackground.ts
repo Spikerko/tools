@@ -14,8 +14,14 @@ export interface DynamicBackgroundPlugin extends Giveable {
     initialize: (...args: any[]) => Promise<void>;
 }
 
+export interface DynamicBackgroundPluginDefiniton {
+    // deno-lint-ignore no-explicit-any
+    new(options?: any): DynamicBackgroundPlugin;
+}
+
 export type DynamicBackgroundPlugins = Record<string, DynamicBackgroundPlugin>
-export type DynamicBackgroundPluginsArray = Array<DynamicBackgroundPlugin>
+export type DynamicBackgroundPluginTuple = [DynamicBackgroundPluginDefiniton, Record<string, unknown> | undefined];
+export type DynamicBackgroundPluginsArray = Array<DynamicBackgroundPlugin | DynamicBackgroundPluginTuple>;
 
 // Interface for DynamicBackground constructor options
 export interface DynamicBackgroundOptions {
@@ -94,9 +100,20 @@ export class DynamicBackground implements Giveable {
 
         if (Array.isArray(pluginsInput)) {
             for (const plugin of pluginsInput) {
-                // Ensure plugin is an object and has a string 'name' property
-                if (plugin && typeof plugin === "object" && typeof (plugin as { name?: unknown }).name === "string") {
-                    pluginsObj[(plugin as { name: string }).name] = plugin;
+                if (Array.isArray(plugin)) {
+                    // Tuple format for new plugins: [PluginClass, options]
+                    const [PluginClass, pluginOptions] = plugin;
+                    if (PluginClass) {
+                        const pluginInstance = new PluginClass(pluginOptions);
+                        if (pluginInstance && typeof pluginInstance === "object" && typeof pluginInstance.name === "string") {
+                            pluginsObj[pluginInstance.name] = pluginInstance;
+                        }
+                    }
+                } else {
+                    // Ensure plugin is an object and has a string 'name' property
+                    if (plugin && typeof plugin === "object" && typeof (plugin as { name?: unknown }).name === "string") {
+                        pluginsObj[(plugin as { name: string }).name] = plugin;
+                    }
                 }
             }
         } else if (typeof pluginsInput === "object" && pluginsInput !== null && !Array.isArray(pluginsInput)) {
