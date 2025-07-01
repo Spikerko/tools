@@ -244,7 +244,7 @@ export class TempoPlugin implements DynamicBackgroundPlugin {
 
     private animate() {
         if (this.speedAnimation) {
-            console.error("TempoPlugin: Speed animation is already running");
+            // console.error("TempoPlugin: Speed animation is already running");
             return;
         }
         this.speedAnimation = requestAnimationFrame(this.animationLoop);
