@@ -228,15 +228,16 @@ export class DynamicBackground implements Giveable {
         // Still keep the comprehensive cleanup as a fallback
         this.maid.Give(() => this.cleanup());
 
-        Object.values(this.plugins).map(plugin => {
+        Object.values(this.plugins).map(async plugin => {
             if (!plugin) return;
             this.maid.Give(() => plugin.Destroy());
-            plugin.initialize(
+            await plugin.initialize(
                 {
                     ClientOptions: options,
                     InternalContent: this,
                 }
             );
+            console.log(`DynamicBackground: ${plugin.name} initialized`);
         })
     }
 

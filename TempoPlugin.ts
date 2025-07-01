@@ -94,9 +94,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
             try {
                 this.processedSections = undefined;
                 await this.processSections();
-                if (this.processedSections && !this.speedAnimation) {
-                    this.animate();
-                }
+                this.animate();
             } catch (error) {
                 console.error("TempoPlugin: Failed to process song sections. Animation not started.", error);
                 if (this.speedAnimation) {
@@ -236,7 +234,7 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
               this.lastSpeed = -1;
             }
             this.lastPaused = this.getPaused();
-            if (this.lastSpeed !== section.speed && !this.getPaused()) {
+            if (this.lastSpeed !== section.speed && !this.lastPaused) {
               await this.dynamicBg.Update({
                 speed: section.speed,
               });
@@ -254,16 +252,19 @@ export default class TempoPlugin implements DynamicBackgroundPlugin {
             return;
         }
         this.speedAnimation = requestAnimationFrame(this.animationLoop);
-        this.maid.Give(() => {
-            if (this.speedAnimation) {
-                cancelAnimationFrame(this.speedAnimation);
-                this.speedAnimation = undefined;
-            }
-        });
     }
 
     public Destroy() {
         this.initialized = false;
-        this.maid.Destroy();
+        this.lastSpeed = -1;
+        this.lastPaused = false;
+        this.processedSections = undefined;
+        this.audioDataAbortController?.abort();
+        this.audioDataAbortController = undefined;
+        if (this.speedAnimation) {
+        cancelAnimationFrame(this.speedAnimation);
+        this.speedAnimation = undefined;
+        }
+        this.maid.CleanUp();
     }
 }
