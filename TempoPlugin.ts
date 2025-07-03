@@ -179,7 +179,7 @@ export class TempoPlugin implements DynamicBackgroundPlugin {
         // deno-lint-ignore no-explicit-any
         this.processedSections = audioData?.sections?.map((section: { tempo: number; start: any; duration: any; }, index: number, arr: { [x: string]: { start: any; }; }) => {
             const newMinSpeed = 0.2;
-            const newMaxSpeed = 0.45;
+            const newMaxSpeed = 0.525;
 
             let speed;
             if (tempoRange === 0) {
