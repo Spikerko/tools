@@ -179,7 +179,7 @@ export class TempoPlugin implements DynamicBackgroundPlugin {
         // deno-lint-ignore no-explicit-any
         this.processedSections = audioData?.sections?.map((section: { tempo: number; start: any; duration: any; }, index: number, arr: { [x: string]: { start: any; }; }) => {
             const newMinSpeed = 0.2;
-            const newMaxSpeed = 0.55;
+            const newMaxSpeed = 0.45;
 
             let speed;
             if (tempoRange === 0) {
@@ -205,7 +205,7 @@ export class TempoPlugin implements DynamicBackgroundPlugin {
           throw new Error("TempoPlugin: getSongPosition() is undefined");
         }
         if (!this.processedSections) {
-          console.warn("TempoPlugin: this.processedSections is undefined, skipping frame.");
+          //console.warn("TempoPlugin: this.processedSections is undefined, skipping frame.");
           this.speedAnimation = requestAnimationFrame(this.animationLoop);
           return;
         }
