@@ -463,6 +463,8 @@ export class DynamicBackground implements Giveable {
                 
                 this.container.uniforms.RotationAngle.value = this.rotationAngle;
                 this.container.uniforms.TransitionProgress.value = progress;
+                // Update rotation speed for both rotation and wave effects
+                this.container.uniforms.RotationSpeed.value = animatedSpeed;
 
                 if (this.container.renderer && this.container.scene) {
                     this.container.renderer.render(this.container.scene, this.renderCamera);

@@ -80,7 +80,8 @@ vec2 RotateAroundCenter(vec2 point, float angle) {
 
 // Wave distortion function
 vec2 ApplyWaveDistortion(vec2 texCoord) {
-    float time = Time * WaveSpeed;
+    // Use RotationSpeed to control wave animation speed
+    float time = Time * WaveSpeed * RotationSpeed;
     vec2 distorted = texCoord;
     
     // Create two perpendicular waves
