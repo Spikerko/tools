@@ -551,6 +551,7 @@ export class DynamicBackground implements Giveable {
 
             this.rotationAngle += deltaTime * this.rotationSpeed;
             this.container.uniforms.RotationAngle.value = this.rotationAngle;
+            this.container.uniforms.RotationSpeed.value = this.rotationSpeed;
             
             // Update Time uniform for wave animation
             this.container.uniforms.Time.value = time / 1000;
