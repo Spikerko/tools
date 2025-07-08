@@ -1,6 +1,5 @@
 import * as THREE from "jsr:@3d/three@0.166.0";
 //import * as THREE from "@3d/three";
-// deno-lint-ignore verbatim-module-syntax
 import { GetShaderUniforms, VertexShader, FragmentShader, type ShaderUniforms, DisposeShaderUniforms } from "./DBG_ThreeShaders.ts";
 // deno-lint-ignore verbatim-module-syntax
 import { Maid, Giveable } from "@socali/modules/Maid";
@@ -550,6 +549,9 @@ export class DynamicBackground implements Giveable {
 
             this.rotationAngle += deltaTime * this.rotationSpeed;
             this.container.uniforms.RotationAngle.value = this.rotationAngle;
+            
+            // Update Time uniform for wave animation
+            this.container.uniforms.Time.value = time / 1000;
 
             this.container.renderer.render(this.container.scene, this.renderCamera);
             this.container.animationFrameId = requestAnimationFrame(animate);
