@@ -14,11 +14,6 @@ uniform sampler2D BlurredCoverArt;
 uniform sampler2D NewBlurredCoverArt;
 uniform float TransitionProgress;
 
-// Wave effect uniforms
-uniform float WaveAmplitude;
-uniform float WaveFrequency;
-uniform float WaveSpeed;
-
 uniform vec2 BackgroundCircleOrigin;
 uniform float BackgroundCircleRadius;
 
@@ -38,11 +33,6 @@ export type ShaderUniforms = {
 	BlurredCoverArt: { value: THREE.Texture };
 	NewBlurredCoverArt: { value: THREE.Texture | null };
 	TransitionProgress: { value: number };
-
-	// Wave effect uniforms
-	WaveAmplitude: { value: number };
-	WaveFrequency: { value: number };
-	WaveSpeed: { value: number };
 
 	BackgroundCircleOrigin: { value: THREE.Vector2 };
 	BackgroundCircleRadius: { value: number };
@@ -78,26 +68,6 @@ vec2 RotateAroundCenter(vec2 point, float angle) {
 	return (rotateCenter + offset);
 }
 
-// Wave distortion function
-vec2 ApplyWaveDistortion(vec2 texCoord) {
-    // Use RotationSpeed to control wave animation speed
-    float time = Time * WaveSpeed * RotationSpeed;
-    vec2 distorted = texCoord;
-    
-    // Create two perpendicular waves
-    distorted.x += WaveAmplitude * sin(texCoord.y * WaveFrequency + time);
-    distorted.y += WaveAmplitude * sin(texCoord.x * WaveFrequency + time);
-    
-    // Add a circular wave from the center
-    vec2 toCenter = texCoord - rotateCenter;
-    float dist = length(toCenter);
-    float angle = atan(toCenter.y, toCenter.x);
-    float wave = sin(dist * WaveFrequency - time);
-    distorted += WaveAmplitude * wave * normalize(toCenter);
-    
-    return distorted;
-}
-
 const vec4 DefaultColor = vec4(0.0, 0.0, 0.0, 0.0);
 void main() {
 	// Global transition variable to ensure consistent crossfade across all circles
@@ -111,9 +81,6 @@ void main() {
 			(((BackgroundCircleOffset / BackgroundCircleRadius) + 1.0) * 0.5),
 			(RotationAngle * -0.25)
 		);
-
-		// Apply wave distortion
-		texCoord = ApplyWaveDistortion(texCoord);
 
 		vec4 currentTexColor = texture2D(BlurredCoverArt, texCoord);
 
@@ -135,9 +102,6 @@ void main() {
 			(((CenterCircleOffset / CenterCircleRadius) + 1.0) * 0.5),
 			(RotationAngle * 0.5)
 		);
-
-		// Apply wave distortion
-		texCoord = ApplyWaveDistortion(texCoord);
 
 		vec4 currentTexColor = texture2D(BlurredCoverArt, texCoord);
 		vec4 newColor;
@@ -163,9 +127,6 @@ void main() {
 			(RotationAngle * 1.0)
 		);
 
-		// Apply wave distortion
-		texCoord = ApplyWaveDistortion(texCoord);
-
 		vec4 currentTexColor = texture2D(BlurredCoverArt, texCoord);
 		vec4 newColor;
 
@@ -189,9 +150,6 @@ void main() {
 			(((RightCircleOffset / RightCircleRadius) + 1.0) * 0.5),
 			(RotationAngle * -0.75)
 		);
-
-		// Apply wave distortion
-		texCoord = ApplyWaveDistortion(texCoord);
 
 		vec4 currentTexColor = texture2D(BlurredCoverArt, texCoord);
 		vec4 newColor;
@@ -264,12 +222,6 @@ export const GetShaderUniforms = (): ShaderUniforms => {
 				uniforms[uniformName] = { value: 1.0 };
 			} else if (uniformName === "TransitionProgress") {
 				uniforms[uniformName] = { value: 0.0 };
-			} else if (uniformName === "WaveAmplitude") {
-				uniforms[uniformName] = { value: 0.02 }; // Default wave amplitude
-			} else if (uniformName === "WaveFrequency") {
-				uniforms[uniformName] = { value: 6.0 }; // Default wave frequency
-			} else if (uniformName === "WaveSpeed") {
-				uniforms[uniformName] = { value: 1.0 }; // Default wave speed
 			} else {
 				uniforms[uniformName] = { value: 0 };
 			}
