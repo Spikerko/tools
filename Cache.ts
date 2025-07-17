@@ -109,6 +109,7 @@ type ExpireItem<C> = {
 export type ExpireStoreInterface<ItemType> = {
     GetItem: (itemName: string) => Promise<ItemType | undefined>;
     SetItem: (itemName: string, content: ItemType) => Promise<ItemType>;
+    RemoveItem: (itemName: string) => Promise<void>;
     Destroy: () => Promise<void>;
 };
 
@@ -204,13 +205,26 @@ export const GetExpireStore = <ItemType>(
             return UpdateCacheAPI(storeName, itemName, expireItem)
                 .then(() => content as ItemType);
         },
+        RemoveItem: (itemName: string) => {
+            return caches.open(storeName)
+                .then(cache => cache.delete(`/${itemName}`))
+                .then(wasDeleted => {
+                    if (!wasDeleted) {
+                        console.warn(`Item '${itemName}' not found in cache store '${storeName}'.`);
+                    }
+                })
+                .catch(error => {
+                    console.error(`Error removing item '${itemName}' from cache store '${storeName}':`, error);
+                    throw error;
+                });
+        },
         Destroy: () => {
             return caches.delete(storeName).then(deleted => {
                 if (!deleted) {
                     console.warn(`Cache store '${storeName}' could not be deleted or did not exist.`);
                 }
-                // Optionally, remove from RetrievedExpireStores if you want to allow re-creation after destruction
-                // RetrievedExpireStores.delete(storeName); 
+                // Allow re-creation
+                RetrievedExpireStores.delete(storeName); 
             }).catch(error => {
                 console.error(`Error destroying cache store '${storeName}':`, error);
                 throw error; // Re-throw the error if you want the caller to handle it
