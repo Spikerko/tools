@@ -261,7 +261,7 @@ export class DynamicBackground implements Giveable {
      * Initialize Three.js static objects
      * This is now an instance method that creates objects for this instance only
      */
-    public initThreeObjects(): void {
+    private initThreeObjects(): void {
         this.renderCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
         (this.renderCamera as unknown as { position: { z: number } }).position.z = 1;
         this.meshGeometry = new THREE.PlaneGeometry(2, 2);
@@ -311,6 +311,10 @@ export class DynamicBackground implements Giveable {
         // If nothing has changed, return early
         if (!imageChanged && !hueShiftChanged && !blurChanged && !speedChanged) {
             return;
+        }
+
+        if (blurChanged || hueShiftChanged) {
+            this.blurredCoverArts.delete(image);
         }
 
         // Update stored values
@@ -399,7 +403,7 @@ export class DynamicBackground implements Giveable {
      * @param imageCoverUrl URL of the image to use
      * @param placeholderHueShift Optional hue shift for placeholder images
      */
-    public async initializeTexture(imageCoverUrl: string, placeholderHueShift: number = 0): Promise<void> {
+    private async initializeTexture(imageCoverUrl: string, placeholderHueShift: number = 0): Promise<void> {
         const blurredCover = await this.getBlurredCoverArt(imageCoverUrl, placeholderHueShift);
         const texture = new THREE.CanvasTexture(blurredCover);
         texture.minFilter = THREE.NearestFilter;
@@ -421,7 +425,7 @@ export class DynamicBackground implements Giveable {
      * @param newTexture The new texture to transition to
      * @param newCoverArtUrl URL of the new cover art
      */
-    public animateTransition(newTexture: THREE.Texture, newCoverArtUrl: string, oldSpeed: number): Promise<void> {
+    private animateTransition(newTexture: THREE.Texture, newCoverArtUrl: string, oldSpeed: number): Promise<void> {
         return new Promise<void>((resolve) => {
             const newSpeed = this.rotationSpeed;
             const duration = this.transitionDuration * 1000;
@@ -495,7 +499,7 @@ export class DynamicBackground implements Giveable {
      * @param newTexture The new texture to use
      * @param newCoverArtUrl URL of the new cover art
      */
-    public completeTransition(newTexture: THREE.Texture, newCoverArtUrl: string): void {
+    private completeTransition(newTexture: THREE.Texture, newCoverArtUrl: string): void {
         // When animation is complete, swap textures
         if (this.container.texture) {
             this.container.texture.dispose();
@@ -523,7 +527,7 @@ export class DynamicBackground implements Giveable {
     /**
      * Starts the animation loop
      */
-    public startAnimation(): void {
+    private startAnimation(): void {
         // Cancel any existing animation
         if (this.container.animationFrameId) {
             cancelAnimationFrame(this.container.animationFrameId);
@@ -562,7 +566,7 @@ export class DynamicBackground implements Giveable {
      * @param width New width
      * @param height New height
      */
-    public updateContainerDimensions(width: number, height: number): void {
+    private updateContainerDimensions(width: number, height: number): void {
         const { renderer, scene, uniforms } = this.container;
 
         renderer.setSize(width, height);
@@ -643,7 +647,7 @@ export class DynamicBackground implements Giveable {
      * @param placeholderHueShift Optional hue shift for placeholder images
      * @returns Promise that resolves to an OffscreenCanvas with the blurred image
      */
-    public async getBlurredCoverArt(coverArtUrl: string, placeholderHueShift: number = 0): Promise<OffscreenCanvas> {
+    private async getBlurredCoverArt(coverArtUrl: string, placeholderHueShift: number = 0): Promise<OffscreenCanvas> {
         if (this.blurredCoverArts.has(coverArtUrl)) {
             return this.blurredCoverArts.get(coverArtUrl)!;
         }
@@ -688,10 +692,21 @@ export class DynamicBackground implements Giveable {
     }
 
     /**
+     * Prefetches an image to blurred cover arts (makes it seem faster on image change - since this is for prefetching)
+     * @param imageUrl URL of the image
+     * @param placeholderHueShift Optional hue shift for placeholder images
+     * @returns Promise that resolves to an OffscreenCanvas with the blurred image
+     */
+    public async PrefetchImage(imageUrl: string, placeholderHueShift: number = 0): Promise<OffscreenCanvas> {
+        const blurredCoverArt = await this.getBlurredCoverArt(imageUrl, placeholderHueShift);
+        return blurredCoverArt;
+    }
+
+    /**
      * Cleans up all resources used by the background
      * This is a fallback cleanup method in case individual Maid cleanups fail
      */
-    public cleanup(): void {
+    private cleanup(): void {
         // Disconnect resize observer
         if (this.resizeObserver) {
             this.resizeObserver.disconnect();
