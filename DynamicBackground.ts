@@ -86,12 +86,14 @@ export class DynamicBackground implements Giveable {
 
     // deno-lint-ignore no-explicit-any
     public plugins: DynamicBackgroundPlugins | Array<any>;
+    public clientOptions: DynamicBackgroundOptions | undefined;
 
     /**
      * Creates a new DynamicBackground
      * @param options Configuration options
      */
     constructor(options: DynamicBackgroundOptions = {}) {
+        this.clientOptions = options;
         // Convert plugins array or object to a normalized object with plugin names as keys
         const pluginsInput = options.plugins ?? [];
         // deno-lint-ignore no-explicit-any
@@ -238,7 +240,9 @@ export class DynamicBackground implements Giveable {
 
         // Register blurred cover arts cache cleanup with Maid
         this.maid.Give(() => {
-            this.blurredCoverArts.clear();
+            if (!options.coverArtCache) {
+                this.blurredCoverArts.clear();
+            }
         });
 
         // Still keep the comprehensive cleanup as a fallback
@@ -773,9 +777,6 @@ export class DynamicBackground implements Giveable {
         if (this.meshGeometry) {
             this.meshGeometry.dispose();
         }
-
-        // Clear the blurred cover arts cache
-        this.blurredCoverArts.clear();
 
         // Reset tracking variables
         this.currentImage = undefined;
