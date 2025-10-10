@@ -23,11 +23,13 @@ const AudioDataStore = GetExpireStore<ProcessedSections>(
 )
 
 export type TempoPluginOptions = {
-    SongChangeSignal: Signal,
-    getSongId: () => string,
+    SongChangeSignal: Signal;
+    getSongId: () => string;
     getPaused: () => boolean;
-    getSongPosition: () => number,
-    getAccessToken: () => Promise<string>,
+    getSongPosition: () => number;
+    getAccessToken: () => Promise<string>;
+    minSpeed?: number;
+    maxSpeed?: number;
 };
 
 export class TempoPlugin implements DynamicBackgroundPlugin {
@@ -60,6 +62,10 @@ export class TempoPlugin implements DynamicBackgroundPlugin {
 
     private options: TempoPluginOptions
 
+    // Internally memoized min/max
+    private minSpeed: number = 0.2;
+    private maxSpeed: number = 0.525;
+
     constructor(options: TempoPluginOptions) {
         this.maid.Give(() => {
             this.audioDataCache.clear()
@@ -72,9 +78,17 @@ export class TempoPlugin implements DynamicBackgroundPlugin {
         this.getAccessToken = this.options.getAccessToken;
         this.getPaused = this.options.getPaused;
         this.animationLoop = this.animationLoop.bind(this);
+
+        // Get custom min/max or default
+        if (typeof options.minSpeed === "number") {
+            this.minSpeed = options.minSpeed;
+        }
+        if (typeof options.maxSpeed === "number") {
+            this.maxSpeed = options.maxSpeed;
+        }
     }
 
-    public async initialize(options: {
+    public initialize(options: {
         ClientOptions: DynamicBackgroundOptions
         InternalContent: DynamicBackground,
     }) {
@@ -176,11 +190,12 @@ export class TempoPlugin implements DynamicBackgroundPlugin {
         const maxTempo = Math.max(...tempos);
         const tempoRange = maxTempo - minTempo;
 
+        // Use minSpeed/maxSpeed from options if provided
+        const newMinSpeed = this.minSpeed;
+        const newMaxSpeed = this.maxSpeed;
+
         // deno-lint-ignore no-explicit-any
         this.processedSections = audioData?.sections?.map((section: { tempo: number; start: any; duration: any; }, index: number, arr: { [x: string]: { start: any; }; }) => {
-            const newMinSpeed = 0.2;
-            const newMaxSpeed = 0.525;
-
             let speed;
             if (tempoRange === 0) {
                 speed = newMinSpeed;

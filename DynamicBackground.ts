@@ -10,7 +10,7 @@ export type CoverArtCache = Map<string, OffscreenCanvas>;
 export interface DynamicBackgroundPlugin extends Giveable {
     name: string;
     // deno-lint-ignore no-explicit-any
-    initialize: (...args: any[]) => Promise<void>;
+    initialize: (...args: any[]) => (Promise<void> | void);
 }
 
 export interface DynamicBackgroundPluginDefiniton {
@@ -29,7 +29,8 @@ export interface DynamicBackgroundOptions {
     maid?: Maid;
     speed?: number;
     coverArtCache?: CoverArtCache;
-    plugins?: DynamicBackgroundPluginsArray
+    plugins?: DynamicBackgroundPluginsArray;
+    cacheLimit?: number;
     // deno-lint-ignore no-explicit-any
     [key: string]: any;
 }
@@ -257,7 +258,6 @@ export class DynamicBackground implements Giveable {
                     InternalContent: this,
                 }
             );
-            console.log(`DynamicBackground: ${plugin.name} initialized`);
         })
     }
 
@@ -653,7 +653,17 @@ export class DynamicBackground implements Giveable {
      */
     private async getBlurredCoverArt(coverArtUrl: string, placeholderHueShift: number = 0): Promise<OffscreenCanvas> {
         if (this.blurredCoverArts.has(coverArtUrl)) {
-            return this.blurredCoverArts.get(coverArtUrl)!;
+            // Refresh LRU order: delete and re-set the key to move it to the end
+            const canvas = this.blurredCoverArts.get(coverArtUrl)!;
+            // Only refresh if a cacheLimit is defined and reached
+            if (
+                typeof this.clientOptions?.cacheLimit === "number" &&
+                this.blurredCoverArts.size >= this.clientOptions.cacheLimit
+            ) {
+                this.blurredCoverArts.delete(coverArtUrl);
+                this.blurredCoverArts.set(coverArtUrl, canvas);
+            }
+            return canvas;
         }
 
         const image = new Image();
@@ -691,6 +701,17 @@ export class DynamicBackground implements Giveable {
         blurredCtx.filter = `blur(${resizedBlurAmount}px) hue-rotate(${placeholderHueShift}deg)`;
         blurredCtx.drawImage(circleCanvas, (padding / 2), (padding / 2));
 
+        // Maintain a cache limit of 10 entries (LRU)
+        if (
+            typeof this.clientOptions?.cacheLimit === "number" &&
+            this.blurredCoverArts.size >= this.clientOptions.cacheLimit
+        ) {
+            // Delete the oldest entry.
+            const oldestKey = this.blurredCoverArts.keys().next().value;
+            if (oldestKey !== undefined) {
+                this.blurredCoverArts.delete(oldestKey);
+            }
+        }
         this.blurredCoverArts.set(coverArtUrl, blurredCanvas);
         return blurredCanvas;
     }
